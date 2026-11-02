@@ -8,6 +8,7 @@ import numpy as np
 import ogbench
 from gymnasium.spaces import Box
 
+from envs import OGBENCH_DATASET_DIR
 from utils.datasets import Dataset
 
 
@@ -105,7 +106,10 @@ def make_env_and_datasets(env_name, frame_stack=None, action_clip_eps=1e-5, offl
         action_clip_eps: Epsilon for action clipping.
         offline_dataset_path: Optional path to a custom offline dataset. For
             OGBench singletask environments, this overrides the default train
-            dataset while keeping the same evaluation environment.
+            dataset while keeping the same evaluation environment (the
+            validation split is not loaded in that case). For D4RL AntMaze,
+            this can be a local `.hdf5`/`.h5` (D4RL format) or `.npz` (D4RL
+            raw format with `timeouts`, or qlearning format) file.
 
     Returns:
         A tuple of the environment, evaluation environment, training dataset, and validation dataset.
@@ -114,7 +118,9 @@ def make_env_and_datasets(env_name, frame_stack=None, action_clip_eps=1e-5, offl
     if 'singletask' in env_name:
         # OGBench.
         if offline_dataset_path is None:
-            env, train_dataset, val_dataset = ogbench.make_env_and_datasets(env_name)
+            env, train_dataset, val_dataset = ogbench.make_env_and_datasets(
+                env_name, dataset_dir=OGBENCH_DATASET_DIR
+            )
         else:
             env = ogbench.make_env_and_datasets(env_name, env_only=True)
             train_dataset = load_npz_dataset(offline_dataset_path)
@@ -127,13 +133,11 @@ def make_env_and_datasets(env_name, frame_stack=None, action_clip_eps=1e-5, offl
             val_dataset = Dataset.create(**val_dataset)
     elif 'antmaze' in env_name and ('diverse' in env_name or 'play' in env_name or 'umaze' in env_name):
         # D4RL AntMaze.
-        if offline_dataset_path is not None:
-            raise ValueError('Custom offline datasets are currently only supported for OGBench singletask environments.')
         from envs import d4rl_utils
 
         env = d4rl_utils.make_env(env_name)
         eval_env = d4rl_utils.make_env(env_name)
-        dataset = d4rl_utils.get_dataset(env, env_name)
+        dataset = d4rl_utils.get_dataset(env, env_name, dataset_path=offline_dataset_path)
         train_dataset, val_dataset = dataset, None
     elif 'pen' in env_name or 'hammer' in env_name or 'relocate' in env_name or 'door' in env_name:
         # D4RL Adroit.

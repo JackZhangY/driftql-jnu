@@ -3,6 +3,7 @@ from collections.abc import Mapping
 
 
 _AGENT_SPECS = {
+    'dfp': ('agents.dfp', 'DFPAgent'),
     'diffusion_ql': ('agents.diffusion_ql', 'DiffusionQLAgent'),
     'driftql': ('agents.driftql', 'DriftQLAgent'),
     'fql': ('agents.fql', 'FQLAgent'),

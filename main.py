@@ -8,7 +8,7 @@ os.environ.setdefault('XLA_PYTHON_CLIENT_PREALLOCATE', 'false')
 import jax
 import numpy as np
 import tqdm
-import wandb
+# import wandb
 from absl import app, flags
 from ml_collections import config_flags
 
@@ -24,8 +24,9 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('run_group', 'Debug', 'Run group.')
 flags.DEFINE_integer('seed', 0, 'Random seed.')
 flags.DEFINE_string('env_name', 'cube-double-play-singletask-v0', 'Environment (dataset) name.')
-flags.DEFINE_string('save_dir', 'exp/', 'Save directory.')
-flags.DEFINE_bool('save_with_env_name', False, 'Whether to place runs under save_dir/env_name/.')
+flags.DEFINE_string('save_dir', 'drift_logs/', 'Save directory.')
+# flags.DEFINE_bool('save_with_env_name', False, 'Whether to place runs under save_dir/env_name/.')
+flags.DEFINE_string('cfg_name', 'default/', 'config name used for current run')
 flags.DEFINE_string('restore_path', None, 'Restore path.')
 flags.DEFINE_integer('restore_epoch', None, 'Restore epoch.')
 flags.DEFINE_string(
@@ -54,19 +55,30 @@ config_flags.DEFINE_config_file('agent', 'agents/driftql.py', lock_config=False)
 
 def main(_):
     # Set up logger.
-    exp_name = get_exp_name(FLAGS.seed)
-    setup_wandb(project='driftql', group=FLAGS.run_group, name=exp_name)
+    # exp_name = get_exp_name(FLAGS.seed)
+    # setup_wandb(project='driftql', group=FLAGS.run_group, name=exp_name)
 
     save_root = FLAGS.save_dir
-    if FLAGS.save_with_env_name:
-        save_root = os.path.join(save_root, FLAGS.env_name)
-    FLAGS.save_dir = os.path.join(save_root, wandb.run.project, FLAGS.run_group, exp_name)
+    # change to local 'save_dir'
+    # All seeds of a config share one `cfg_name` directory, each in a seed subdir.
+    # All runs are stored under ~/all_logs (i.e. /home/jndx/all_logs).
+    FLAGS.save_dir = os.path.join(
+        os.path.expanduser("~/all_logs"), # '../../autodl-tmp/' for autodl paltform
+        save_root,
+        'offline',
+        FLAGS.agent['agent_name'],
+        FLAGS.env_name,
+        FLAGS.cfg_name,
+        f'seed{FLAGS.seed}',
+    )
+
     os.makedirs(FLAGS.save_dir, exist_ok=True)
     flag_dict = get_flag_dict()
     with open(os.path.join(FLAGS.save_dir, 'flags.json'), 'w') as f:
         json.dump(flag_dict, f)
 
-    # Make environment and datasets.
+    # Make environment and datasets. Datasets are resolved from the directories
+    # in `envs/__init__.py` unless `--offline_dataset_path` is given.
     config = FLAGS.agent
     env, eval_env, train_dataset, val_dataset = make_env_and_datasets(
         FLAGS.env_name,
@@ -199,7 +211,7 @@ def main(_):
             train_metrics['time/total_time'] = time.time() - first_time
             train_metrics.update(expl_metrics)
             last_time = time.time()
-            wandb.log(train_metrics, step=i)
+            # wandb.log(train_metrics, step=i)
             train_logger.log(train_metrics, step=i)
 
         # Evaluate agent.
@@ -222,7 +234,7 @@ def main(_):
                 video = get_wandb_video(renders=renders)
                 eval_metrics['video'] = video
 
-            wandb.log(eval_metrics, step=i)
+            # wandb.log(eval_metrics, step=i)
             eval_logger.log(eval_metrics, step=i)
 
         # Save agent.
